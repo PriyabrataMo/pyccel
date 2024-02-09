@@ -767,7 +767,12 @@ class CCodePrinter(CodePrinter):
                     if not func.is_inline:
                         class_scope.rename_function(func, f"{classDef.name}__{func.name.lstrip('__')}")
                         funcs += f"{self.function_signature(func)};\n"
-            classes += "};\n"
+            classes += "};\n"\
+        
+        for func in expr.module.funcs:
+            if not func.is_inline:
+                self.scope.rename_function(func, f"{name}_{func.name.lstrip('__')}")
+
         funcs += '\n'.join(f"{self.function_signature(f)};" for f in expr.module.funcs)
 
         global_variables = ''.join(['extern '+self._print(d) for d in expr.module.declarations if not d.variable.is_private])
@@ -1813,11 +1818,12 @@ class CCodePrinter(CodePrinter):
         return ""
 
     def _print_FunctionDef(self, expr):
+        sub=""
+        for func in expr.functions:
+            sub+= self._print(func)
         if expr.is_inline:
             return ''
-
         self.set_scope(expr.scope)
-
         arguments = [a.var for a in expr.arguments]
         results = [r.var for r in expr.results]
         if len(expr.results) > 1:
@@ -1842,8 +1848,8 @@ class CCodePrinter(CodePrinter):
         for i in expr.imports:
             self.add_import(i)
         docstring = self._print(expr.docstring) if expr.docstring else ''
-
-        parts = [sep,
+        parts = [sub,
+                 sep,
                  docstring,
                 '{signature}\n{{\n'.format(signature=self.function_signature(expr)),
                  decs,
@@ -1852,7 +1858,6 @@ class CCodePrinter(CodePrinter):
                  sep]
 
         self.exit_scope()
-
         return ''.join(p for p in parts if p)
 
     def _print_FunctionCall(self, expr):
